@@ -21,9 +21,11 @@ import com.example.saarthi.Screens.MapScreen
 import com.example.saarthi.Screens.RoutesListScreen
 import com.example.saarthi.Screens.FamilyScreen
 import com.example.saarthi.Screens.SettingsScreen
+import com.example.saarthi.Screens.PhoneAuthScreen
 import com.example.saarthi.Screens.RouteNamingScreen
 import com.example.saarthi.Screens.RouteDetailScreen
 import com.example.saarthi.data.Route
+import com.example.saarthi.services.FirestoreInitializer
 import com.example.saarthi.ui.theme.SaarthiTheme
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.OnMapsSdkInitializedCallback
@@ -40,6 +42,10 @@ class MainActivity : ComponentActivity(), OnMapsSdkInitializedCallback {
 
 		// Initialize Google Maps SDK
 		MapsInitializer.initialize(this, MapsInitializer.Renderer.LATEST, this)
+
+		// Initialize Firestore collections
+		val firestoreInitializer = FirestoreInitializer(this)
+		firestoreInitializer.initializeDefaultFamily()
 
 		requestLocationPermission()
 		requestNotificationPermissionIfNeeded()
@@ -230,7 +236,25 @@ fun MainScreen(
 				FamilyScreen()
 			}
 			"settings" -> {
-				SettingsScreen()
+				val activity = LocalContext.current as ComponentActivity
+				SettingsScreen(
+					onOpenPhoneAuth = {
+						currentScreen = "phone_auth"
+					},
+					onSignOut = {
+						com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+						currentScreen = "phone_auth"
+					}
+				)
+			}
+			"phone_auth" -> {
+				val activity = LocalContext.current as ComponentActivity
+				PhoneAuthScreen(
+					activity = activity,
+					onSignedIn = {
+						currentScreen = "saved"
+					}
+				)
 			}
 			"route_naming" -> {
 				recordedRoute?.let { route ->
