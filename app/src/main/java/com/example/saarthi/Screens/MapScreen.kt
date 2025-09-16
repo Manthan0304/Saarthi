@@ -31,6 +31,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 
@@ -53,7 +54,7 @@ fun formatTime(milliseconds: Long): String {
 fun MapScreen(
     onShowRoutes: () -> Unit = {},
     selectedRoute: Route? = null,
-    onRouteRecorded: (Route) -> Unit = {}
+    onRouteRecorded: (Route, Boolean) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
@@ -75,6 +76,8 @@ fun MapScreen(
     var routePoints by remember { mutableStateOf<List<RoutePoint>>(emptyList()) }
     var currentDistance by remember { mutableStateOf(0.0) } // in miles
     var elapsedTime by remember { mutableStateOf(0L) } // in milliseconds
+    var isContinuing by remember { mutableStateOf(false) }
+    var basePointCount by remember { mutableStateOf(0) }
 
     var mapProperties by remember {
         mutableStateOf(MapProperties(isMyLocationEnabled = true))
@@ -107,6 +110,29 @@ fun MapScreen(
                             cameraPositionState.position =
                                 CameraPosition.fromLatLngZoom(newLocation, 15f)
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // When a saved route is selected, move camera to fit it
+    LaunchedEffect(selectedRoute) {
+        selectedRoute?.let { route ->
+            if (route.points.size >= 2) {
+                val builder = LatLngBounds.Builder()
+                route.points.forEach { p -> builder.include(p.toLatLng()) }
+                val bounds = builder.build()
+                coroutineScope.launch {
+                    try {
+                        cameraPositionState.animate(
+                            update = CameraUpdateFactory.newLatLngBounds(bounds, 80),
+                            durationMs = 800
+                        )
+                    } catch (_: Exception) {
+                        // ignore if map not ready for bounds; fallback to first point
+                        val first = route.points.first().toLatLng()
+                        cameraPositionState.position = CameraPosition.fromLatLngZoom(first, 15f)
                     }
                 }
             }
@@ -182,40 +208,100 @@ fun MapScreen(
                 }
             }
 
-            // Bottom half with Start Recording button
+            // Bottom half with action buttons
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.5f), // Takes up the other half
                 contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = {
-                        try {
-                            routeRecorder.startRecording()
-                            isRecording = true
-                            isPaused = false
-                            currentDistance = 0.0
-                            elapsedTime = 0L
-                        } catch (e: Exception) {
-                            // Handle error
-                        }
-                    },
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
                         .padding(horizontal = 32.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
-                    )
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Start Recording",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (selectedRoute != null) {
+                        Button(
+                            onClick = {
+                                try {
+                                    routeRecorder.continueRecording(selectedRoute)
+                                    isRecording = true
+                                    isPaused = false
+                                    currentDistance = selectedRoute.totalDistance * 0.000621371
+                                    elapsedTime = 0L // we only show elapsed session time here
+                                    isContinuing = true
+                                    basePointCount = routeRecorder.getInitialExistingPointCount()
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50)
+                            )
+                        ) {
+                            Text(
+                                text = "Continue Recording",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    routeRecorder.startRecording()
+                                    isRecording = true
+                                    isPaused = false
+                                    currentDistance = 0.0
+                                    elapsedTime = 0L
+                                    isContinuing = false
+                                    basePointCount = 0
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "Start New Recording",
+                                fontSize = 16.sp
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                try {
+                                    routeRecorder.startRecording()
+                                    isRecording = true
+                                    isPaused = false
+                                    currentDistance = 0.0
+                                    elapsedTime = 0L
+                                    isContinuing = false
+                                    basePointCount = 0
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50)
+                            )
+                        ) {
+                            Text(
+                                text = "Start Recording",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         } else {
@@ -230,12 +316,27 @@ fun MapScreen(
                 ) {
                     // Draw recorded route polyline (current recording)
                     if (routePoints.size >= 2) {
-                        val polylinePoints = routePoints.map { it.toLatLng() }
-                        Polyline(
-                            points = polylinePoints,
-                            color = Color.Blue,
-                            width = 8f
-                        )
+                        if (isContinuing && basePointCount >= 2 && basePointCount < routePoints.size) {
+                            val oldPoints = routePoints.take(basePointCount).map { it.toLatLng() }
+                            val newPoints = routePoints.drop(basePointCount - 1).map { it.toLatLng() }
+                            Polyline(
+                                points = oldPoints,
+                                color = Color.Red,
+                                width = 6f
+                            )
+                            Polyline(
+                                points = newPoints,
+                                color = Color.Blue,
+                                width = 8f
+                            )
+                        } else {
+                            val polylinePoints = routePoints.map { it.toLatLng() }
+                            Polyline(
+                                points = polylinePoints,
+                                color = Color.Blue,
+                                width = 8f
+                            )
+                        }
                     }
 
                     // Draw selected saved route polyline
@@ -293,8 +394,9 @@ fun MapScreen(
                         isRecording = false
                         isPaused = false
                         completedRoute?.let { route ->
-                            onRouteRecorded(route)
+                            onRouteRecorded(route, !isContinuing)
                         }
+                        isContinuing = false
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -380,8 +482,9 @@ fun MapScreen(
                                 isRecording = false
                                 isPaused = false
                                 completedRoute?.let { route ->
-                                    onRouteRecorded(route)
+                                    onRouteRecorded(route, !isContinuing)
                                 }
+                                isContinuing = false
                             },
                             containerColor = Color.Red,
                             contentColor = Color.White,

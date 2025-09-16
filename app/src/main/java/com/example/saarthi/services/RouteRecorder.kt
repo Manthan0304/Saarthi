@@ -27,6 +27,9 @@ class RouteRecorder(private val context: Context) {
     private var startTime: Long = 0L
     private var currentDistance = 0.0 // in meters
     private var lastLocation: Location? = null
+    private var isContinuingExistingRoute: Boolean = false
+    private var initialExistingPointsCount: Int = 0
+    private var baseDurationSeconds: Long = 0
     
     // Location request configuration
     private val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000) // 5 seconds interval
@@ -55,9 +58,39 @@ class RouteRecorder(private val context: Context) {
         this.startTime = System.currentTimeMillis()
         currentDistance = 0.0
         lastLocation = null
+        isContinuingExistingRoute = false
+        initialExistingPointsCount = 0
+        baseDurationSeconds = 0
         
         startLocationUpdates()
         
+        return currentRoute!!
+    }
+
+    fun continueRecording(existingRoute: Route): Route {
+        if (isRecording) {
+            throw IllegalStateException("Already recording a route")
+        }
+
+        currentRoute = existingRoute.copy(
+            endTime = null,
+            points = emptyList(),
+            duration = 0
+        )
+
+        routePoints.clear()
+        routePoints.addAll(existingRoute.points)
+        isRecording = true
+        isPaused = false
+        this.startTime = System.currentTimeMillis()
+        currentDistance = existingRoute.totalDistance
+        lastLocation = null
+        isContinuingExistingRoute = true
+        initialExistingPointsCount = existingRoute.points.size
+        baseDurationSeconds = existingRoute.duration
+
+        startLocationUpdates()
+
         return currentRoute!!
     }
     
@@ -88,6 +121,9 @@ class RouteRecorder(private val context: Context) {
         startTime = 0L
         currentDistance = 0.0
         lastLocation = null
+        isContinuingExistingRoute = false
+        initialExistingPointsCount = 0
+        baseDurationSeconds = 0
         
         return completedRoute
     }
@@ -111,7 +147,8 @@ class RouteRecorder(private val context: Context) {
     }
 
     fun getElapsedTime(): Long {
-        return if (startTime > 0) System.currentTimeMillis() - startTime else 0L
+        val sessionMs = if (startTime > 0) System.currentTimeMillis() - startTime else 0L
+        return sessionMs + baseDurationSeconds * 1000
     }
     
     fun isRecording(): Boolean = isRecording
@@ -119,6 +156,10 @@ class RouteRecorder(private val context: Context) {
     fun getCurrentRoute(): Route? = currentRoute
     
     fun getRoutePoints(): List<RoutePoint> = routePoints.toList()
+
+    fun getInitialExistingPointCount(): Int = initialExistingPointsCount
+
+    fun isContinuing(): Boolean = isContinuingExistingRoute
     
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
@@ -201,12 +242,10 @@ class RouteRecorder(private val context: Context) {
         // For now, we'll use SharedPreferences to store routes
         // In a real app, you'd use Room database or similar
         val sharedPrefs = context.getSharedPreferences("routes", Context.MODE_PRIVATE)
-        val routesJson = sharedPrefs.getString("saved_routes", "[]")
-        
-        // Simple JSON storage (in production, use proper JSON library)
-        // This is a simplified version - you might want to use Gson or Moshi
-        val updatedRoutes = routesJson + "," + route.id
-        sharedPrefs.edit().putString("saved_routes", updatedRoutes).apply()
+        val existing = sharedPrefs.getString("saved_routes", "") ?: ""
+        val ids = if (existing.isBlank()) emptyList() else existing.split(",").filter { it.isNotBlank() }
+        val updated = if (ids.contains(route.id)) existing else if (existing.isBlank()) route.id else "$existing,${route.id}"
+        sharedPrefs.edit().putString("saved_routes", updated).apply()
         
         // Store individual route data
         val editor = sharedPrefs.edit()
@@ -269,5 +308,10 @@ class RouteRecorder(private val context: Context) {
                 null
             }
         }
+    }
+
+    fun renameRoute(routeId: String, newName: String) {
+        val sharedPrefs = context.getSharedPreferences("routes", Context.MODE_PRIVATE)
+        sharedPrefs.edit().putString("route_${routeId}_name", newName).apply()
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -20,6 +21,7 @@ import com.example.saarthi.Screens.RoutesListScreen
 import com.example.saarthi.Screens.FamilyScreen
 import com.example.saarthi.Screens.SettingsScreen
 import com.example.saarthi.Screens.RouteNamingScreen
+import com.example.saarthi.Screens.RouteDetailScreen
 import com.example.saarthi.data.Route
 import com.example.saarthi.ui.theme.SaarthiTheme
 import com.google.android.gms.maps.MapsInitializer
@@ -92,6 +94,7 @@ fun MainScreen(
 ) {
     var currentScreen by remember { mutableStateOf("home") }
     var recordedRoute by remember { mutableStateOf<Route?>(null) }
+    var pendingRouteName by remember { mutableStateOf("") }
     
     val screens = listOf(
         "home" to "Home",
@@ -130,7 +133,7 @@ fun MainScreen(
                             },
                             selected = currentScreen == screen,
                             onClick = { currentScreen = screen }
-                        )
+                        )   
                     }
                 }
             }
@@ -141,9 +144,14 @@ fun MainScreen(
                 MapScreen(
                     onShowRoutes = { currentScreen = "saved" },
                     selectedRoute = selectedRoute,
-                    onRouteRecorded = { route ->
-                        recordedRoute = route
-                        currentScreen = "route_naming"
+                    onRouteRecorded = { route, needsNaming ->
+                        if (needsNaming) {
+                            recordedRoute = route
+                            currentScreen = "route_naming"
+                        } else {
+                            recordedRoute = null
+                            currentScreen = "saved"
+                        }
                     }
                 )
             }
@@ -167,13 +175,16 @@ fun MainScreen(
             }
             "route_naming" -> {
                 recordedRoute?.let { route ->
+                    val context = LocalContext.current  // get context here
                     RouteNamingScreen(
                         recordedRoute = route,
                         onSaveRoute = { routeName ->
-                            // Here you would save the route with the name
-                            // For now, we'll just go back to home
+                            // persist name
+                            com.example.saarthi.services.RouteRecorder(context)
+                                .renameRoute(route.id, routeName)
+
                             recordedRoute = null
-                            currentScreen = "home"
+                            currentScreen = "saved"
                         },
                         onCancel = {
                             recordedRoute = null
