@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Saarthi</string>
+    <string name="notification_channel_tracking">Route recording</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="stop">Stop</string>
 </resources>

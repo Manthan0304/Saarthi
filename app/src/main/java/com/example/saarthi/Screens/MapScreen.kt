@@ -27,7 +27,9 @@ import androidx.core.app.ActivityCompat
 import com.example.saarthi.data.Route
 import com.example.saarthi.data.RoutePoint
 import com.example.saarthi.services.RouteRecorder
+import com.example.saarthi.services.TrackingService
 import com.google.android.gms.location.LocationServices
+import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -226,7 +228,13 @@ fun MapScreen(
                         Button(
                             onClick = {
                                 try {
+                                    // Start local recording for UI updates
                                     routeRecorder.continueRecording(selectedRoute)
+                                    val intent = android.content.Intent(context, TrackingService::class.java).apply {
+                                        action = TrackingService.ACTION_CONTINUE
+                                        putExtra(TrackingService.EXTRA_ROUTE, selectedRoute)
+                                    }
+                                    ContextCompat.startForegroundService(context, intent)
                                     isRecording = true
                                     isPaused = false
                                     currentDistance = selectedRoute.totalDistance * 0.000621371
@@ -254,7 +262,12 @@ fun MapScreen(
                         OutlinedButton(
                             onClick = {
                                 try {
+                                    // Start local recording for UI updates
                                     routeRecorder.startRecording()
+                                    val intent = android.content.Intent(context, TrackingService::class.java).apply {
+                                        action = TrackingService.ACTION_START_NEW
+                                    }
+                                    ContextCompat.startForegroundService(context, intent)
                                     isRecording = true
                                     isPaused = false
                                     currentDistance = 0.0
@@ -277,7 +290,12 @@ fun MapScreen(
                         Button(
                             onClick = {
                                 try {
+                                    // Start local recording for UI updates
                                     routeRecorder.startRecording()
+                                    val intent = android.content.Intent(context, TrackingService::class.java).apply {
+                                        action = TrackingService.ACTION_START_NEW
+                                    }
+                                    ContextCompat.startForegroundService(context, intent)
                                     isRecording = true
                                     isPaused = false
                                     currentDistance = 0.0
@@ -390,7 +408,8 @@ fun MapScreen(
                 // Save Route Button (above bottom controls)
                 Button(
                     onClick = {
-                        val completedRoute = routeRecorder.stopRecording()
+                        val completedRoute = routeRecorder.stopRecording(save = false)
+                        ContextCompat.startForegroundService(context, android.content.Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP })
                         isRecording = false
                         isPaused = false
                         completedRoute?.let { route ->
@@ -478,7 +497,8 @@ fun MapScreen(
                         // Stop Button
                         FloatingActionButton(
                             onClick = {
-                                val completedRoute = routeRecorder.stopRecording()
+                                val completedRoute = routeRecorder.stopRecording(save = false)
+                                ContextCompat.startForegroundService(context, android.content.Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP })
                                 isRecording = false
                                 isPaused = false
                                 completedRoute?.let { route ->

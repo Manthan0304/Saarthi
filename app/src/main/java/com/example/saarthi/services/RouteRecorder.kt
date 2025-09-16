@@ -94,7 +94,7 @@ class RouteRecorder(private val context: Context) {
         return currentRoute!!
     }
     
-    fun stopRecording(): Route? {
+    fun stopRecording(save: Boolean = true): Route? {
         if (!isRecording || currentRoute == null) {
             return null
         }
@@ -112,7 +112,9 @@ class RouteRecorder(private val context: Context) {
         )
         
         // Save route locally
-        saveRouteLocally(completedRoute)
+        if (save) {
+            saveRouteLocally(completedRoute)
+        }
         
         isRecording = false
         isPaused = false
@@ -245,7 +247,10 @@ class RouteRecorder(private val context: Context) {
         val existing = sharedPrefs.getString("saved_routes", "") ?: ""
         val ids = if (existing.isBlank()) emptyList() else existing.split(",").filter { it.isNotBlank() }
         val updated = if (ids.contains(route.id)) existing else if (existing.isBlank()) route.id else "$existing,${route.id}"
-        sharedPrefs.edit().putString("saved_routes", updated).apply()
+        sharedPrefs.edit()
+            .putString("saved_routes", updated)
+            .putString("last_saved_route_id", route.id)
+            .apply()
         
         // Store individual route data
         val editor = sharedPrefs.edit()

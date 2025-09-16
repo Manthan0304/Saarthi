@@ -2,6 +2,7 @@ package com.example.saarthi.data
 
 import com.google.android.gms.maps.model.LatLng
 import java.time.LocalDateTime
+import java.io.Serializable
 
 data class RoutePoint(
     val latitude: Double,
@@ -9,7 +10,7 @@ data class RoutePoint(
     val timestamp: LocalDateTime,
     val accuracy: Float? = null,
     val speed: Float? = null
-) {
+): Serializable {
     fun toLatLng(): LatLng = LatLng(latitude, longitude)
 }
 
@@ -21,4 +22,4 @@ data class Route(
     val points: List<RoutePoint> = emptyList(),
     val totalDistance: Double = 0.0,
     val duration: Long = 0 // in seconds
-)
+): Serializable
