@@ -12,10 +12,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.saarthi.services.FirestoreRepo
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 
 @Composable
 fun AllowlistScreen(
@@ -44,12 +46,15 @@ fun AllowlistScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Button(onClick = onBack) {
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF666666))
+            ) {
                 Text("← Back")
             }
             Spacer(Modifier.width(16.dp))
             Text(
-                text = "Location Sharing",
+                text = "Manage Sharing",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -64,13 +69,14 @@ fun AllowlistScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Who can see your location?",
+                    text = "👥 Who can see your location?",
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Add phone numbers of people you want to share your location with. They will only see your location if you're both sharing.",
+                    text = "Add phone numbers of family members you want to share your location with. Both of you need to add each other to see locations.",
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
@@ -82,21 +88,36 @@ fun AllowlistScreen(
         // Add button
         Button(
             onClick = { showAddDialog = true },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.Add, contentDescription = "Add")
             Spacer(Modifier.width(8.dp))
-            Text("Add Phone Number")
+            Text("Add Family Member")
         }
 
         Spacer(Modifier.height(16.dp))
 
         // Allowlist
-        Text(
-            text = "Allowed Phone Numbers (${allowlist.size})",
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "📱 Family Members (${allowlist.size})",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            if (allowlist.isNotEmpty()) {
+                Text(
+                    text = "Tap to remove",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
 
         Spacer(Modifier.height(8.dp))
 
@@ -104,11 +125,27 @@ fun AllowlistScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
             ) {
-                Text(
-                    text = "No phone numbers added yet.\nAdd phone numbers to start sharing your location.",
-                    color = Color.Gray,
-                    modifier = Modifier.padding(16.dp)
-                )
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "👤",
+                        fontSize = 48.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "No family members added yet",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Add phone numbers to start sharing your location with family members.",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -116,7 +153,11 @@ fun AllowlistScreen(
             ) {
                 items(allowlist) { phone ->
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C)),
+                        onClick = {
+                            repo.removeFromAllowlist(phone)
+                            allowlist = allowlist.filter { it != phone }
+                        }
                     ) {
                         Row(
                             modifier = Modifier
@@ -125,22 +166,22 @@ fun AllowlistScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
+                                text = "📱",
+                                fontSize = 20.sp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
                                 text = phone,
                                 color = Color.White,
+                                fontSize = 16.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(
-                                onClick = {
-                                    repo.removeFromAllowlist(phone)
-                                    allowlist = allowlist.filter { it != phone }
-                                }
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    tint = Color.Red
-                                )
-                            }
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Remove",
+                                tint = Color.Red,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -151,39 +192,76 @@ fun AllowlistScreen(
     // Add phone dialog
     if (showAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("Add Phone Number") },
+            onDismissRequest = { 
+                showAddDialog = false
+                newPhone = ""
+            },
+            title = { 
+                Text(
+                    text = "Add Family Member",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                ) 
+            },
             text = {
                 Column {
-                    Text("Enter the phone number you want to share your location with:")
-                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Enter the phone number of the family member you want to share your location with.",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = newPhone,
                         onValueChange = { newPhone = it },
                         label = { Text("Phone Number") },
-                        placeholder = { Text("+1234567890") }
+                        placeholder = { Text("+1234567890") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF4CAF50),
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Format: +1234567890 (include country code)",
+                        color = Color.Gray,
+                        fontSize = 12.sp
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (newPhone.isNotBlank()) {
+                        if (newPhone.isNotBlank() && newPhone.startsWith("+")) {
                             repo.addToAllowlist(newPhone)
                             allowlist = allowlist + newPhone
                             newPhone = ""
                             showAddDialog = false
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    enabled = newPhone.isNotBlank() && newPhone.startsWith("+")
                 ) {
-                    Text("Add")
+                    Text("Add Member")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                Button(
+                    onClick = { 
+                        showAddDialog = false
+                        newPhone = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF666666))
+                ) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = Color(0xFF2C2C2C)
         )
     }
 }

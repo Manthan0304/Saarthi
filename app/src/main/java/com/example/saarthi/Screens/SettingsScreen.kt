@@ -26,6 +26,8 @@ fun SettingsScreen(
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
     val isSignedIn = currentUser != null
+    val Orange = Color(0xFFFF9800)
+
 
     Column(
         modifier = Modifier
@@ -79,7 +81,7 @@ fun SettingsScreen(
                 } else {
                     Text(
                         text = "Not signed in",
-                        color = Color.Orange,
+                        color = Orange,
                         fontSize = 16.sp
                     )
                     Spacer(Modifier.height(12.dp))

@@ -74,7 +74,7 @@ fun FamilyScreen() {
                     Column {
                         Text(
                             text = if (isSharing) "📍 Sharing Location" else "📍 Not Sharing",
-                            color = if (isSharing) Color.Green else Color.Orange,
+                            color = if (isSharing) Color.Green else Orange,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -141,6 +141,7 @@ fun FamilyScreen() {
                         Text("⚙️ Manage")
                     }
                 }
+                
             }
         }
 
@@ -156,8 +157,8 @@ fun FamilyScreen() {
                     members.filter { it.lat != null && it.lng != null }.forEach { member ->
                         Marker(
                             state = MarkerState(position = LatLng(member.lat!!, member.lng!!)),
-                            title = member.displayName ?: member.uid,
-                            snippet = "Phone: ${member.phone ?: "Unknown"}"
+                            title = member.phone ?: member.displayName ?: member.uid,
+                            snippet = "Name: ${member.displayName ?: "Unknown"}"
                         )
                     }
                 }
@@ -183,33 +184,46 @@ fun FamilyScreen() {
                         modifier = Modifier.padding(16.dp)
                     )
                 } else {
-                    members.forEach { m ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = m.displayName ?: m.uid,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Phone: ${m.phone ?: "Unknown"}",
-                                    color = Color.Gray,
-                                    fontSize = 12.sp
-                                )
-                                val locationText = if (m.lat != null && m.lng != null) {
-                                    "📍 ${m.lat}, ${m.lng}"
-                                } else {
-                                    "📍 No location yet"
+                        members.forEach { m ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    // Phone number as primary identifier
+                                    Text(
+                                        text = m.phone ?: "Unknown Phone",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    // Display name as secondary
+                                    if (m.displayName != null && m.displayName != m.uid) {
+                                        Text(
+                                            text = "Name: ${m.displayName}",
+                                            color = Color.Gray,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    // Location status
+                                    val locationText = if (m.lat != null && m.lng != null) {
+                                        "📍 Location: ${String.format("%.4f", m.lat)}, ${String.format("%.4f", m.lng)}"
+                                    } else {
+                                        "📍 No location yet"
+                                    }
+                                    Text(
+                                        text = locationText,
+                                        color = if (m.lat != null && m.lng != null) Color.Green else Orange,
+                                        fontSize = 12.sp
+                                    )
+                                    // UID for debugging
+                                    Text(
+                                        text = "ID: ${m.uid.take(8)}...",
+                                        color = Color.Gray,
+                                        fontSize = 10.sp
+                                    )
                                 }
-                                Text(
-                                    text = locationText,
-                                    color = if (m.lat != null && m.lng != null) Color.Green else Orange
-                                )
                             }
                         }
-                    }
                 }
             }
         }

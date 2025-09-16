@@ -182,10 +182,18 @@ class FirestoreRepo(private val context: Context) {
                     )
                 }
                 
-                // Filter: Show members who are sharing AND either:
-                // 1. They have current user in their allowlist, OR
-                // 2. Current user has them in their allowlist, OR  
-                // 3. It's the current user themselves
+                // TEMPORARY: Show all sharing members for debugging
+                // TODO: Remove this and use the filtered logic below once allowlist is working
+                val filteredList = list.filter { member ->
+                    if (!member.sharing) {
+                        android.util.Log.d("FirestoreRepo", "Member ${member.uid}: not sharing")
+                        return@filter false
+                    }
+                    android.util.Log.d("FirestoreRepo", "Member ${member.uid}: sharing, showing for debugging")
+                    return@filter true // TEMPORARY: Show all sharing members
+                }
+                
+                /* ORIGINAL FILTERED LOGIC - COMMENTED OUT FOR DEBUGGING
                 val filteredList = list.filter { member ->
                     if (!member.sharing) {
                         android.util.Log.d("FirestoreRepo", "Member ${member.uid}: not sharing")
@@ -215,8 +223,9 @@ class FirestoreRepo(private val context: Context) {
                     
                     canSee
                 }
+                */
                 
-                android.util.Log.d("FirestoreRepo", "Filtered members (sharing + allowlist): ${filteredList.size}")
+                android.util.Log.d("FirestoreRepo", "Filtered members (sharing only for debugging): ${filteredList.size}")
                 onUpdate(filteredList)
             }.addOnFailureListener { e ->
                 android.util.Log.e("FirestoreRepo", "Error fetching profiles", e)

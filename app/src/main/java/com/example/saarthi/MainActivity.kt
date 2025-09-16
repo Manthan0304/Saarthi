@@ -1,6 +1,7 @@
 package com.example.saarthi
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +25,7 @@ import com.example.saarthi.Screens.SettingsScreen
 import com.example.saarthi.Screens.PhoneAuthScreen
 import com.example.saarthi.Screens.RouteNamingScreen
 import com.example.saarthi.Screens.RouteDetailScreen
+import com.example.saarthi.Screens.OnboardingScreen
 import com.example.saarthi.data.Route
 import com.example.saarthi.services.FirestoreInitializer
 import com.example.saarthi.ui.theme.SaarthiTheme
@@ -53,8 +55,25 @@ class MainActivity : ComponentActivity(), OnMapsSdkInitializedCallback {
 		setContent {
 			SaarthiTheme {
 				var selectedRoute by remember { mutableStateOf<Route?>(null) }
+				var showOnboarding by remember { mutableStateOf(true) }
 				
-				MainScreen(selectedRoute = selectedRoute, onRouteSelected = { selectedRoute = it })
+				// Check if onboarding has been completed
+				LaunchedEffect(Unit) {
+					val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+					showOnboarding = !prefs.getBoolean("onboarding_completed", false)
+				}
+				
+				if (showOnboarding) {
+					OnboardingScreen(
+						onGetStarted = { 
+							val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+							prefs.edit().putBoolean("onboarding_completed", true).apply()
+							showOnboarding = false 
+						}
+					)
+				} else {
+					MainScreen(selectedRoute = selectedRoute, onRouteSelected = { selectedRoute = it })
+				}
 			}
 		}
 	}

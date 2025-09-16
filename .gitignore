@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Exclude Android Manifest
+app/src/main/AndroidManifest.xml
