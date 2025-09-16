@@ -38,6 +38,7 @@ class TrackingService : Service() {
 
     private lateinit var routeRecorder: RouteRecorder
     private val isRunning = AtomicBoolean(false)
+    private val isPaused = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
     private var tickerJob: Job? = null
 
@@ -74,6 +75,13 @@ class TrackingService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         isRunning.set(true)
         setRecordingFlag(true)
+        // Reset base point count for a new route
+        val prefs = getSharedPreferences("routes", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt("base_point_count", 0)
+            .putBoolean("was_continuing", false)
+            .apply()
+        isPaused.set(false)
         startTicker()
     }
 
@@ -83,24 +91,44 @@ class TrackingService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         isRunning.set(true)
         setRecordingFlag(true)
+        val prefs = getSharedPreferences("routes", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt("base_point_count", route.points.size)
+            .putBoolean("was_continuing", true)
+            .apply()
+        isPaused.set(false)
         startTicker()
     }
 
     private fun pause() {
         if (!isRunning.get()) return
+        if (isPaused.get()) return
         routeRecorder.pauseRecording()
+        isPaused.set(true)
         updateNotification()
     }
 
     private fun resume() {
         if (!isRunning.get()) return
+        if (!isPaused.get()) return
         routeRecorder.resumeRecording()
+        isPaused.set(false)
         updateNotification()
     }
 
     private fun stopAll() {
         // Service is the single source of truth for saving to avoid duplicates
-        routeRecorder.stopRecording(save = true)
+        val completed = routeRecorder.stopRecording(save = true)
+        completed?.let {
+            val prefs = getSharedPreferences("routes", Context.MODE_PRIVATE)
+            val wasContinuing = prefs.getBoolean("was_continuing", false)
+            prefs.edit()
+                .putString("last_saved_route_id", it.id)
+                .putString("route_completed_id", it.id)
+                .putBoolean("route_completed_needs_naming", !wasContinuing)
+                .putBoolean("route_completed_pending", true)
+                .apply()
+        }
         stopTicker()
         isRunning.set(false)
         setRecordingFlag(false)
@@ -131,7 +159,7 @@ class TrackingService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val pauseResumeAction = if (routeRecorder.isRecording()) {
+        val pauseResumeAction = if (!isPaused.get()) {
             val pauseIntent = Intent(this, TrackingService::class.java).apply { action = ACTION_PAUSE }
             val pausePending = PendingIntent.getService(this, 1, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
             NotificationCompat.Action(0, getString(R.string.pause), pausePending)
@@ -168,8 +196,12 @@ class TrackingService : Service() {
         val prefs = getSharedPreferences("routes", Context.MODE_PRIVATE)
         val editor = prefs.edit()
         editor.putBoolean("recording_active", isRunning.get())
+        editor.putBoolean("recording_paused", isPaused.get())
         editor.putLong("live_elapsed_ms", routeRecorder.getElapsedTime())
         editor.putFloat("live_distance_miles", routeRecorder.getCurrentDistance().toFloat())
+        // Persist live points for UI drawing
+        val pointsString = routeRecorder.getRoutePoints().joinToString("|") { p -> "${p.latitude},${p.longitude},${p.timestamp}" }
+        editor.putString("live_points", pointsString)
         editor.apply()
     }
 

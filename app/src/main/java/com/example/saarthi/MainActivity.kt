@@ -169,6 +169,35 @@ fun MainScreen(
 			}
 		}
 	) { paddingValues ->
+		// Check if a route just finished (polling) and navigate immediately
+		val context = LocalContext.current
+		LaunchedEffect(true) {
+			while (true) {
+				val prefs = context.getSharedPreferences("routes", android.content.Context.MODE_PRIVATE)
+				val pending = prefs.getBoolean("route_completed_pending", false)
+				if (pending) {
+					val routeId = prefs.getString("route_completed_id", null)
+					val needsNaming = prefs.getBoolean("route_completed_needs_naming", true)
+					if (routeId != null) {
+						val route = com.example.saarthi.data.Route(
+							id = routeId,
+							name = "",
+							startTime = java.time.LocalDateTime.now()
+						)
+						if (needsNaming) {
+							recordedRoute = route
+							currentScreen = "route_naming"
+						} else {
+							recordedRoute = null
+							currentScreen = "saved"
+						}
+					}
+					prefs.edit().putBoolean("route_completed_pending", false).apply()
+				}
+				kotlinx.coroutines.delay(300)
+			}
+		}
+
 		when (currentScreen) {
 			"home" -> {
 				MapScreen(

@@ -80,6 +80,7 @@ fun MapScreen(
     var elapsedTime by remember { mutableStateOf(0L) } // in milliseconds
     var isContinuing by remember { mutableStateOf(false) }
     var basePointCount by remember { mutableStateOf(0) }
+    val sharedPrefs = remember { context.getSharedPreferences("routes", android.content.Context.MODE_PRIVATE) }
 
     var mapProperties by remember {
         mutableStateOf(MapProperties(isMyLocationEnabled = true))
@@ -141,24 +142,45 @@ fun MapScreen(
         }
     }
 
-    // Update route points when recording
+    // Update route points when recording (prefer live points from service to avoid overlap glitches)
     LaunchedEffect(isRecording) {
         if (isRecording) {
             while (isRecording) {
-                routePoints = routeRecorder.getRoutePoints()
+                val pointsStr = sharedPrefs.getString("live_points", null)
+                routePoints = if (!pointsStr.isNullOrEmpty()) {
+                    pointsStr.split("|").mapNotNull { s ->
+                        val parts = s.split(",")
+                        if (parts.size >= 3) {
+                            try { RoutePoint(parts[0].toDouble(), parts[1].toDouble(), java.time.LocalDateTime.parse(parts[2])) } catch (e: Exception) { null }
+                        } else null
+                    }
+                } else {
+                    routeRecorder.getRoutePoints()
+                }
                 kotlinx.coroutines.delay(1000) // Update every second
             }
         }
     }
 
-    // Update distance and time during recording
-    LaunchedEffect(isRecording, isPaused) {
-        if (isRecording && !isPaused) {
-            while (isRecording && !isPaused) {
-                currentDistance = routeRecorder.getCurrentDistance()
-                elapsedTime = routeRecorder.getElapsedTime()
-                kotlinx.coroutines.delay(1000) // Update every second
+    // Distance/time are mirrored from the service via SharedPreferences
+
+    // Mirror background service state so switching tabs doesn't stop UI state
+    LaunchedEffect(true) {
+        while (true) {
+            val active = sharedPrefs.getBoolean("recording_active", false)
+            if (active && !isRecording) {
+                isRecording = true
             }
+            if (active) {
+                val dist = sharedPrefs.getFloat("live_distance_miles", currentDistance.toFloat()).toDouble()
+                val timeMs = sharedPrefs.getLong("live_elapsed_ms", elapsedTime)
+                val paused = sharedPrefs.getBoolean("recording_paused", isPaused)
+                currentDistance = dist
+                elapsedTime = timeMs
+                isPaused = paused
+                basePointCount = sharedPrefs.getInt("base_point_count", basePointCount)
+            }
+            kotlinx.coroutines.delay(1000)
         }
     }
 
@@ -334,7 +356,7 @@ fun MapScreen(
                 ) {
                     // Draw recorded route polyline (current recording)
                     if (routePoints.size >= 2) {
-                        if (isContinuing && basePointCount >= 2 && basePointCount < routePoints.size) {
+                        if ((isContinuing || basePointCount > 0) && basePointCount >= 2 && basePointCount < routePoints.size) {
                             val oldPoints = routePoints.take(basePointCount).map { it.toLatLng() }
                             val newPoints = routePoints.drop(basePointCount - 1).map { it.toLatLng() }
                             Polyline(
@@ -460,7 +482,7 @@ fun MapScreen(
                         FloatingActionButton(
                             onClick = {
                                 if (isPaused) {
-                                    routeRecorder.resumeRecording()
+                                    ContextCompat.startForegroundService(context, android.content.Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_RESUME })
                                     isPaused = false
                                 }
                             },
@@ -479,7 +501,7 @@ fun MapScreen(
                         FloatingActionButton(
                             onClick = {
                                 if (isRecording && !isPaused) {
-                                    routeRecorder.pauseRecording()
+                                    ContextCompat.startForegroundService(context, android.content.Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_PAUSE })
                                     isPaused = true
                                 }
                             },
