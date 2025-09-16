@@ -320,8 +320,9 @@ fun MapScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                         .padding(horizontal = 16.dp)
-                        .padding(bottom = 16.dp),
+                        .padding(bottom = 80.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFF1A1A1A).copy(alpha = 0.9f)
                     ),
