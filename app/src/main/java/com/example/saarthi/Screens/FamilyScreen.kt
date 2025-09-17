@@ -36,18 +36,18 @@ fun FamilyScreen() {
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
         Card(
-            modifier = Modifier
+        modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
+            Text(
                     text = "Family Location Sharing",
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "Share your location with family members",
@@ -210,13 +210,13 @@ fun FamilyScreen() {
                                     } else {
                                         "📍 No location yet"
                                     }
-                                    Text(
+            Text(
                                         text = locationText,
                                         color = if (m.lat != null && m.lng != null) Color.Green else Orange,
                                         fontSize = 12.sp
                                     )
                                     // UID for debugging
-                                    Text(
+            Text(
                                         text = "ID: ${m.uid.take(8)}...",
                                         color = Color.Gray,
                                         fontSize = 10.sp
